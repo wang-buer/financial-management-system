@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>统计报表</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport"
+          content="width=device-width,user-scalable=yes, minimum-scale=0.4, initial-scale=0.8"/>
+    <link rel="stylesheet" href="/static/css/font.css">
+    <link rel="stylesheet" href="/static/css/xadmin.css">
+    <script type="text/javascript" src="/static/js/index.js"></script>
+    <script type="text/javascript" src="/static/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/lib/layui/layui.js" charset="utf-8"></script>
+    <script type="text/javascript" src="/static/js/xadmin.js"></script>
+    <script type="text/javascript" src="/static/js/echarts5.js"></script>
+</head>
+
+<body>
+<div class="x-nav">
+      <span class="layui-breadcrumb">
+        <a href="">首页</a>
+        <a href="">统计报表</a>
+        <a>
+          <cite>统计报表</cite></a>
+      </span>
+    <a class="layui-btn layui-btn-small" style="line-height:1.6em;margin-top:3px;float:right"
+       href="javascript:location.reload();" title="刷新">
+        <i class="layui-icon" style="line-height:30px">ဂ</i></a>
+</div>
+<div class="x-body">
+    <div class="layui-row">
+        <form class="layui-form layui-col-md12 x-so">
+            <input class="layui-input" placeholder="开始日" id="start" autocomplete="off">
+            <input class="layui-input" placeholder="截止日" id="end" autocomplete="off">
+            <input type="text" placeholder="姓名" id="realname" autocomplete="off" class="layui-input">
+            <input type="text" placeholder="标题" id="title" autocomplete="off" class="layui-input">
+            <div class="layui-input-inline">
+                <select id="payway">
+                    <option value="-1">选择支付方式</option>
+                </select>
+            </div>
+            <button class="layui-btn" type="button" lay-submit="" lay-filter="sreach" onclick="getBills()">
+                <i class="layui-icon">&#xe615;</i>搜索
+            </button>
+            <button class="layui-btn layui-btn-primary" type="reset">
+                <i class="layui-icon">&#xe640;</i>重置
+            </button>
+        </form>
+    </div>
+    <fieldset class="layui-elem-field" style="height: 1000px; ">
+        <div id="chart1" class="layui-col-md12 layui-col-sm12" style="height: 800px;"></div>
+        <!--<div id="chart11" class="layui-col-md6 layui-col-sm12" style="height: 400px;"></div>
+        <div id="chart2" class="layui-col-md12 layui-col-sm12" style="height: 600px;"></div>
+        <div id="main" class="layui-col-md18 layui-col-sm12" style="height: 600px;"></div>-->
+    </fieldset>
+</div>
+
+<script>
+    getAllPayways();
+    mPageSize = 10000;
+    $(function () {
+        layui.use('laydate', function () {
+            var laydate = layui.laydate;
+            //执行一个laydate实例
+            laydate.render({
+                elem: '#start', //指定元素
+                max: 0
+            });
+            laydate.render({
+                elem: '#end', //指定元素
+                max: 0
+            });
+        });
+        initChart();
+        getBills();
+    });
+
+    function getBills() {
+        var date = new Date();
+        date.setDate(1);
+        $("#start").val()==""? $("#start").val(date.toLocaleDateString().replace(/\//g,'-')) : {};
+        $("#end").val()==""? $("#end").val(new Date().toLocaleDateString().replace(/\//g,'-')) : {};
+        // console.log(daysBetween($("#end").val(),$("#start").val()));
+        var bill = {
+            "startTime": $("#start").val(),
+            "endTime": $("#end").val(),
+            "realname": $("#realname").val(),
+            "title": $("#title").val(),
+            "paywayid": $("#payway").val() == -1 ? null : $("#payway").val(),
+        }
+        // console.log(bill)
+        // 异步加载数据
+        $.post('/bills/getBillsToChart',bill, function (res) {
+            if (res.code == 200){
+                    //setChart1(res.datas);
+                    //setChart11(res.datas);
+                    setChart2(res.datas);
+
+            } else {
+                myChart1.hideLoading();
+                //myChart11.hideLoading();
+                //myChart2.hideLoading();
+            }
+
+        });
+    }
+
+    function initChart() {
+        // 基于准备好的dom，初始化echarts实例
+        myChart1 = echarts.init(document.getElementById('chart1'));
+        // 指定图表的配置项和数据
+        myChart1.setOption({
+            xAxis: {
+                type: 'category',
+                data: []
+            },
+            yAxis: {
+                type: 'value'
+            },
+            tooltip: {
+                trigger: 'item'
+            },
+            legend: {
+                orient: 'vertical',
+                left: 'left',
+            },
+            grid: {
+                top: "30%"
+            },
+            series: [
+                {
+                    name: '收入',
+                    data: [],
+                    type: 'bar'
+                },
+                { name: '支出',
+                    data: [],
+                    type: 'bar'
+                },
+                {
+                    name:'净收入',
+                    data: [],
+                    type: 'bar',
+                },
+                {
+                    name:'支付宝',
+                    data: [],
+                    type: 'line'
+                },
+                {
+                    name:'微信',
+                    data: [],
+                    type: 'line'
+                },
+                {
+                    name:'银联',
+                    data: [],
+                    type: 'line'
+                },
+                {
+                    name:'现金',
+                    data: [],
+                    type: 'line'
+                },
+                {
+                    name:'其他',
+                    data: [],
+                    type: 'line'
+                },
+                {
+                    name:'本月收支',
+                    data: [],
+                    type: 'pie',
+                    center: ['80%', '20%'],
+                    radius: [0, '25%']
+                },
+                /*{
+                  data: [
+                    { value: 735, name: '现金' },
+                    { value: 580, name: '支付宝' },
+                    { value: 580, name: '微信' },
+                    { value: 580, name: '其他' }],
+                  type: 'pie',
+                  center: ['60%', '20%'],
+                  radius: [0, '25%']
+                }*/
+            ]
+        });
+        myChart1.showLoading();
+    }
+
+    function setChart1(datas){
+        var paySum = 0;
+        var incomeSum = 0;
+        $.each(datas,function (index,item) {
+            if(item.typeid == 1){
+                paySum += parseFloat(item.money);
+            }else if (item.typeid == 2) {
+                incomeSum += parseFloat(item.money);
+            }
+        });
+        myChart1.hideLoading();
+        myChart1.setOption({
+            series: [{
+                // 根据名字对应到相应的系列
+                name: '本月收支',
+                data: [
+                    {value:incomeSum.toFixed(2), name:'收入', selected: true},
+                    {value:paySum.toFixed(2), name:'支出'},
+                ],
+            }]
+        });
+    }
+
+    function setChart11(datas) {
+        var money = [0,0,0,0,0];
+        $.each(datas,function (index,item) {
+            for (var i = 0; i < 5; i++) {
+                if (item.paywayid==(i+1)){
+                    if (item.typeid == 1){
+                        money[i] -= item.money;
+                    }else if(item.typeid == 2){
+                        money[i] += item.money;
+                    }
+                }
+            }
+        });
+        myChart11.hideLoading();
+        myChart11.setOption({
+            series: [{
+                data: money,
+            },{
+                data: money
+            }]
+        });
+    }
+
+    function setChart2(datas) {
+        var x = [], payVal = new Array(30), incomeVal = new Array(30), netIncomeVal = new Array(30), zfbList = new Array(30),
+            wxList  = new Array(30), ylList  = new Array(30) , xjList  = new Array(30),  otherList  = new Array(30);
+        var start = new Date($("#start").val());
+        var end = new Date($("#end").val());
+        var between = daysBetween(end,start);
+        console.log(between);
+        for (var i = 0; i<= between; i++){
+            payVal[i]=0; incomeVal[i]=0, netIncomeVal[i]=0;
+            var dateStr = dateAdd(start,i);
+            x.push(dateStr);
+            var incomeSum=0, paySum = 0, netIncomeSum = 0, zfb = 0, wx = 0, yl = 0, xj = 0, other = 0;
+            $.each(datas,function (index,item) {
+                if(item.time.split(" ")[0] == dateStr){
+                    if (item.typeid == 1) {//收入
+                        paySum += parseFloat(item.money);
+                        if (item.paywayid == 1){
+                            zfb -= parseFloat(item.money);
+                        }else if (item.paywayid == 2){
+                            wx -= parseFloat(item.money);
+                        }else if (item.paywayid == 3){
+                            yl -= parseFloat(item.money);
+                        }else if (item.paywayid == 4){
+                            xj -= parseFloat(item.money);
+                        }else if (item.paywayid == 5){
+                            other -= parseFloat(item.money);
+                        }
+                    } else if (item.typeid == 2) {
+                        incomeSum += parseFloat(item.money);
+                        if (item.paywayid == 1){
+                            zfb += parseFloat(item.money);
+                        }else if (item.paywayid == 2){
+                            wx += parseFloat(item.money);
+                        }else if (item.paywayid == 3){
+                            yl += parseFloat(item.money);
+                        }else if (item.paywayid == 4){
+                            xj += parseFloat(item.money);
+                        }else if (item.paywayid == 5){
+                            other += parseFloat(item.money);
+                        }
+                    }
+                }
+            });
+            netIncomeSum += incomeSum - paySum;
+            payVal[i] = paySum;
+            incomeVal[i] = incomeSum;
+            netIncomeVal[i] = netIncomeSum;
+            zfbList[i] = zfb;
+            wxList[i] = wx;
+            ylList[i] = yl;
+            xjList[i] = xj;
+            otherList[i] = other;
+        }
+        var paySum = 0;
+        var incomeSum = 0;
+        $.each(datas,function (index,item) {
+            if(item.typeid == 1){
+                paySum += parseFloat(item.money);
+            }else if (item.typeid == 2) {
+                incomeSum += parseFloat(item.money);
+            }
+        });
+        myChart1.hideLoading();
+        myChart1.setOption({
+            xAxis: {
+                data: x
+            },
+            series: [
+                // 根据名字对应到相应的系列
+                {
+                    name:'支出',
+                    data: payVal
+                },
+                {
+                    name:'收入',
+                    data: incomeVal
+                },
+                {
+                    name:'净收入',
+                    data: netIncomeVal
+                },
+                {
+                    name:'支付宝',
+                    data: zfbList,
+                },
+                {
+                    name:'微信',
+                    data: wxList,
+                },
+                {
+                    name:'银联',
+                    data: ylList,
+                },
+                {
+                    name:'现金',
+                    data: xjList,
+                },
+                {
+                    name:'其他',
+                    data: otherList,
+                },
+                {
+                    name: '本月收支',
+                    data: [
+                        {value:incomeSum.toFixed(2), name:'收入', selected: true},
+                        {value:paySum.toFixed(2), name:'支出'},
+                    ],
+                }
+            ]
+        });
+    }
+
+</script>
